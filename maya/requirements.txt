@@ -1,0 +1,2 @@
+openassetio==1.0.0rc1.post0
+openassetio-mediacreation==1.0.0a10

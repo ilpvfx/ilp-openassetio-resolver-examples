@@ -4,6 +4,8 @@ import weakref
 
 import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
+from openassetio.hostApi import HostInterface
+from openassetio.log import LoggerInterface
 
 
 class OpenAssetIOResolver(OpenMayaMPx.MPxFileResolver):
@@ -73,6 +75,31 @@ class OpenAssetIOResolver(OpenMayaMPx.MPxFileResolver):
         saved: The URI file path is the unresolved path to the file, the resolved path
         gives the physical location of the file.
         """
+
+
+class MayaOpenAssetIOResolverHost(HostInterface):
+    def identifier(self) -> str:
+        return "com.ilpvfx.maya.resolver"
+
+    def displayName(self) -> str:
+        return "Maya Resolver"
+
+
+class MayaOpenAssetIOResolverLogger(LoggerInterface):
+    def log(self, severity: LoggerInterface.Severity, message: str):
+        """Converts log messages from OpenAssetIO's logging framework to Maya's display
+        messaging system.
+        """
+
+        match severity:
+            case LoggerInterface.Severity.kCritical | LoggerInterface.Severity.kError:
+                OpenMaya.MGlobal.displayError(message)
+
+            case LoggerInterface.Severity.kInfo | LoggerInterface.Severity.kProgress:
+                OpenMaya.MGlobal.displayInfo(message)
+
+            case LoggerInterface.Severity.kWarning:
+                OpenMaya.MGlobal.displayWarning(message)
 
 
 def initializePlugin(plugin: OpenMaya.MObject):
