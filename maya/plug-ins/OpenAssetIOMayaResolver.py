@@ -5,7 +5,7 @@ from functools import partial
 
 import maya.OpenMaya as OpenMaya
 import maya.OpenMayaMPx as OpenMayaMPx
-from openassetio import constants, errors
+from openassetio import access, constants, errors
 from openassetio.hostApi import HostInterface, Manager, ManagerFactory
 from openassetio.log import LoggerInterface, SeverityFilter
 from openassetio.pluginSystem import (
@@ -13,6 +13,7 @@ from openassetio.pluginSystem import (
     HybridPluginSystemManagerImplementationFactory,
     PythonPluginSystemManagerImplementationFactory,
 )
+from openassetio_mediacreation.traits.content import LocatableContentTrait
 
 
 class OpenAssetIOResolver(OpenMayaMPx.MPxFileResolver):
@@ -64,24 +65,44 @@ class OpenAssetIOResolver(OpenMayaMPx.MPxFileResolver):
         The output is a fully qualified file path, though successful resolution doesn't
         guarantee the file's existence. The resolution mode provides additional context
         for the request; refer to MPxFileResolverMode for more information.
+
+        TODO: Can we make use out of the provided context node name?
         """
 
-        if mode & OpenMayaMPx.MPxFileResolver.kNone:
+        if mode & (
+            OpenMayaMPx.MPxFileResolver.kNone | OpenMayaMPx.MPxFileResolver.kInput
+        ):
             # When kNone is used, the resolver should simply return the resolved path as
             # efficiently as possible. The path returned by the resolver will not be
             # checked for existence.
-            ...
+            #
+            # When kInput is used, the resolver plug-in may need to do additional work to
+            # ensure that the resolved path is available to the application. The path
+            # returned by the resolver will be checked for existence.
+            entityRef = self._manager.createEntityReferenceIfValid(uriFilePath.asString())
+            if not entityRef:
+                OpenMaya.MGlobal.displayWarning(
+                    f"Invalid entity reference: {uriFilePath.asString()!r}"
+                )
 
-        elif mode & OpenMayaMPx.MPxFileResolver.kInput:
-            # In this case, the resolver plug-in may need to do additional work to ensure
-            # that the resolved path is available to the application. The path returned by
-            # the resolver will be checked for existence.
-            ...
+                return uriFilePath.getPath()
+
+            traitsData = self._manager.resolve(
+                entityRef,
+                {LocatableContentTrait.kId},
+                access.ResolveAccess.kRead,
+                self._context,
+            )
+
+            if not (location := LocatableContentTrait(traitsData).getLocation()):
+                raise ValueError(
+                    f"Unable to resolve location for entity: {uriFilePath.asString()!r}"
+                )
+
+            return OpenMaya.MURI(location).getPath()
 
         else:
-            ...
-
-        return uriFilePath.getPath()
+            raise ValueError(f"Unexpected resolve mode: {str(mode)}")
 
     def performAfterSaveURI(self, uriValue: OpenMaya.MURI, resolvedFullName: str):
         """The method will be called by Maya after a scene file associated with this URI
@@ -180,6 +201,10 @@ def initializePlugin(plugin: OpenMaya.MObject):
             OpenAssetIOResolver.className(),
             uriScheme,
             partial(OpenAssetIOResolver.theCreator, manager, uriScheme),
+        )
+
+        OpenMaya.MGlobal.displayInfo(
+            f"Registered manager {manager.displayName()!r} with URI scheme {uriScheme!r}"
         )
 
     except Exception:
