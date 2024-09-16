@@ -7,7 +7,7 @@ This project demonstrates how to resolve file paths inside [Maya](https://www.au
 
 ## Getting Started
 
-To use the plugin, first ensure the `maya` directory from this repository is included in Maya’s module search path. Set (or append to) the `MAYA_MODULE_PATH` environment variable to point to this directory.
+To use the plugin, first ensure the `maya` directory from this repository is included in Maya’s module search path. Set the `MAYA_MODULE_PATH` environment variable (or append to it) to point to this directory.
 
 Additionally, the resolver requires `openassetio` to be available at Maya's runtime. You can install the required Python dependencies using Maya's bundled Python interpreter (`mayapy`):
 ```bash
